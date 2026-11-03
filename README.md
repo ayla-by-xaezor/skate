@@ -77,11 +77,11 @@ Whenever a game round resolves, custom full-screen celebration modals pop up wit
   - High-priority Android notification channel (`skate_casino_channel`) with vibration and custom app icon.
   - Attractive lock-screen alerts bringing users back to claim daily vaults, hot blackjack streaks, or multiplier alerts.
   - Background listener scheduling alerts when the user minimizes the app.
-- **💰 Uncapped Staking & Slider Controls**:
+- **💰 Stake Controls (10–5,000 SC)**:
   - Direct custom numeric typing in betting amount box.
-  - Dynamic stake slider scaling automatically to user balance.
-- **🔑 Admin Virtual Credits Injection**:
-  - Built-in credit grant tool in Settings protected by authorization key: `fcukyou`.
+  - Dynamic stake slider scaling automatically to user balance, capped at the table limit.
+- **🔑 Admin Virtual Credits Injection (env-gated)**:
+  - Credit grant tool in Settings, enabled only when a `VITE_ADMIN_KEY` is configured at build time. No key is committed to the repo.
   - Transaction ledger history and balance synchronization.
 
 ---
@@ -101,16 +101,14 @@ Whenever a game round resolves, custom full-screen celebration modals pop up wit
 
 ## 🛡️ Provably Fair Engine
 
-Every game outcome is strictly deterministic and verifiable using industry-standard **HMAC-SHA256**:
+Game outcomes are derived deterministically from `ServerSeed:ClientSeed:Nonce`, so any round can be re-checked with the built-in verifier in **Settings**.
 
-```
-Outcome = HMAC_SHA256(ServerSeed, ClientSeed + ":" + Nonce)
-```
+Be honest about the limits before calling this audited fairness:
 
-1. **Server Seed**: Cryptographically secure 256-bit hexadecimal string committed before the round.
-2. **Client Seed**: User-customizable string editable anytime in **Settings**.
-3. **Nonce**: Incrementing counter for every wager placed.
-4. **Independent Verification**: Use the built-in SHA256 verification tool in **Settings** to audit any historical roll or card draw.
+1. **Server Seed**: generated in-browser per session; the user can rotate it in Settings (nonce resets to 1).
+2. **Client Seed**: user-customizable string, editable anytime in **Settings**.
+3. **Nonce**: incrementing counter for every wager placed.
+4. **The in-browser hash is not vetted SHA-256.** The fairness display uses a small deterministic hash function (`simpleSha256Hex` in `skate-ui/src/store.js`). The Python backend validator (`skate_backend_server.py`) uses real HMAC-SHA256, but the frontend does not call it yet — the app currently runs entirely in the browser on localStorage. Replacing the in-browser hash with WebCrypto SHA-256 and wiring server-authoritative validation are tracked follow-ups, not current claims.
 
 ---
 
@@ -118,9 +116,8 @@ Outcome = HMAC_SHA256(ServerSeed, ClientSeed + ":" + Nonce)
 
 ```
 skate/
-├── SKATE.apk                       # Compiled Android Release/Debug APK (~7.68 MB)
-├── skate_backend_server.py         # Authoritative Python validation & anti-cheat server
-├── skate_production.db             # SQLite3 WAL-mode database
+├── .gitignore                      # APKs, databases, node_modules, env files
+├── skate_backend_server.py         # Python validation library + self-test (not an HTTP server)
 ├── ref-imgs/                       # Screenshots and high-res UI artwork
 │   ├── icon.png                    # Official SKATE App Brand Icon
 │   ├── ss1.png                     # Home Lobby Screenshot
@@ -130,6 +127,7 @@ skate/
 │   ├── win_art.png                 # "YOU WIN!" Modal Artwork
 │   └── lose_art.png                # "YOU LOSE" Modal Artwork
 └── skate-ui/                       # React 19 Frontend + Capacitor Project
+    ├── .env.example                # Documented build-time env vars (no real secrets)
     ├── android/                    # Android Studio Native Project
     │   └── app/src/main/
     │       ├── AndroidManifest.xml # Vibrate & Post-Notifications permissions
@@ -155,7 +153,7 @@ skate/
 
 ### Prerequisites
 - **Node.js** 18+ & **npm**
-- **Python** 3.10+ *(for backend server)*
+- **Python** 3.10+ *(for the backend validator self-test)*
 - **Android Studio** & **JDK 21** *(for compiling Android APK)*
 
 ### 1. Web Application
@@ -167,12 +165,13 @@ npm run dev
 ```
 Open [http://localhost:5173](http://localhost:5173) in your mobile browser or emulator.
 
-### 2. Python Backend Server
+### 2. Python Backend Validator (optional — not wired to the frontend)
 
 ```bash
-python skate_backend_server.py
+SKATE_SERVER_SECRET=your-secret-here python skate_backend_server.py
 ```
-Starts authoritative SQLite3 server on port `8000` with RESTful betting endpoints.
+
+Runs a self-test of the validation library: it creates a local dev database and runs every game validator, printing the results. It does **not** start an HTTP server, and the web app does not call it yet — wiring server-authoritative validation is future work. The server secret must come from the environment; there is no committed default.
 
 ### 3. Build & Export Android APK
 
@@ -190,16 +189,15 @@ cd android
 .\gradlew.bat assembleDebug
 
 # Output APK:
-# android/app/build/outputs/apk/debug/app-debug.apk -> SKATE.apk
+# android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
 ---
 
 ## 📲 Download & Installation
 
-The ready-to-install Android APK is compiled in the repository:
+No APK is committed to this repository. Build one from source with the steps above, or grab a published build from GitHub Releases.
 
-- 📥 **[Download SKATE.apk](file:///c:/Users/Ayush/Documents/Projects0/skate/SKATE.apk)** *(7.68 MB)*
 - Enable *"Install Unknown Apps"* on your Android device and tap to install.
 
 ---
@@ -207,8 +205,9 @@ The ready-to-install Android APK is compiled in the repository:
 ## ⚙️ Configuration & Secrets
 
 | Feature | Key / Command | Description |
-| :--- | :---: | :--- |
-| **Custom Credits Key** | `fcukyou` | Enter in **Settings > Grant Custom Credits** to inject any virtual SC amount. |
+| :--- | :--- | :--- |
+| **Custom Credits Key** | `VITE_ADMIN_KEY` (build-time env) | Set it to enable **Settings > Grant Custom Credits**; unset means grants are disabled. Never commit a real key. |
+| **Backend Server Secret** | `SKATE_SERVER_SECRET` (env) | Required to run the backend validator self-test; no committed default. |
 | **Notification Channel** | `skate_casino_channel` | Android notification channel with high priority and vibration. |
 | **Provably Fair Seed** | User configurable | Accessible via **Settings > Preferences & Fairness**. |
 

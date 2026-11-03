@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Copy, Check } from 'lucide-react';
 import { useStore } from '../hooks';
-import { MIN_STAKE, playSound, simpleSha256Hex, showToast } from '../store';
+import { MIN_STAKE, MAX_STAKE, playSound, simpleSha256Hex, showToast } from '../store';
 
 import BlackjackGame from '../games/Blackjack';
 import PlinkoGame from '../games/Plinko';
@@ -30,6 +30,12 @@ export default function PlayPage() {
   const [stake, setStake] = useState(100);
   const [copied, setCopied] = useState(false);
 
+  // Table limits (10–5,000 SC). Every stake change goes through this clamp,
+  // and games always receive the clamped value, so no round can start
+  // outside the table limits.
+  const clampStake = (v) => Math.min(MAX_STAKE, Math.max(MIN_STAKE, Math.round(v) || MIN_STAKE));
+  const effectiveStake = stake > 0 ? clampStake(stake) : MIN_STAKE;
+
   const switchGame = (id) => {
     playSound('chip');
     navigate(`/play/${id}`);
@@ -37,18 +43,18 @@ export default function PlayPage() {
 
   const adjustStake = (delta) => {
     playSound('chip');
-    setStake(prev => Math.max(1, prev + delta));
+    setStake(prev => clampStake(prev + delta));
   };
 
   const multiplyStake = (factor) => {
     playSound('chip');
-    setStake(prev => Math.max(1, Math.round(prev * factor)));
+    setStake(prev => clampStake(prev * factor));
   };
 
   const setMaxStake = () => {
     playSound('chip');
-    // Set to all credits, or whatever balance user has
-    setStake(Math.max(1, state.credits));
+    // Set to the balance, capped at the table limit
+    setStake(clampStake(state.credits));
   };
 
   const handleCustomStakeChange = (e) => {
@@ -56,7 +62,7 @@ export default function PlayPage() {
     if (isNaN(val)) {
       setStake(0);
     } else {
-      setStake(Math.max(0, val));
+      setStake(val <= 0 ? 0 : clampStake(val));
     }
   };
 
@@ -114,17 +120,17 @@ export default function PlayPage() {
         <div className="wager-slider-row">
           <input
             type="range"
-            min={1}
-            max={dynamicMax}
+            min={MIN_STAKE}
+            max={Math.max(MIN_STAKE, Math.min(dynamicMax, MAX_STAKE))}
             step="10"
             value={Math.min(stake, dynamicMax)}
-            onChange={(e) => setStake(Math.max(1, Number(e.target.value)))}
+            onChange={(e) => setStake(clampStake(Number(e.target.value)))}
             className="wager-range-slider"
           />
           <div className="wager-amount-box" title="Tap to enter custom stake amount">
             <input
               type="number"
-              min="1"
+              min={MIN_STAKE}
               value={stake === 0 ? '' : stake}
               onChange={handleCustomStakeChange}
               placeholder="0"
@@ -160,7 +166,7 @@ export default function PlayPage() {
           <button
             onClick={setMaxStake}
             className="chip-preset-btn chip-btn-max"
-            title="Wager all available balance"
+            title="Wager up to the 5,000 SC table limit"
           >
             MAX
           </button>
@@ -168,12 +174,12 @@ export default function PlayPage() {
       </div>
 
       {/* Active Game Component Mount */}
-      {activeGame === 'blackjack' && <BlackjackGame stake={stake} />}
-      {activeGame === 'plinko' && <PlinkoGame stake={stake} />}
-      {activeGame === 'mines' && <MinesGame stake={stake} />}
-      {activeGame === 'dice' && <DiceGame stake={stake} />}
-      {activeGame === 'crash' && <CrashGame stake={stake} />}
-      {activeGame === 'reflex' && <ReflexGame stake={stake} />}
+      {activeGame === 'blackjack' && <BlackjackGame stake={effectiveStake} />}
+      {activeGame === 'plinko' && <PlinkoGame stake={effectiveStake} />}
+      {activeGame === 'mines' && <MinesGame stake={effectiveStake} />}
+      {activeGame === 'dice' && <DiceGame stake={effectiveStake} />}
+      {activeGame === 'crash' && <CrashGame stake={effectiveStake} />}
+      {activeGame === 'reflex' && <ReflexGame stake={effectiveStake} />}
     </div>
   );
 }

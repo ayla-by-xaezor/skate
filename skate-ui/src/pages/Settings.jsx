@@ -14,6 +14,11 @@ import {
 } from '../store';
 import { triggerRandomEngagementNotification } from '../notificationService';
 
+// Admin key for custom credit grants. Set via build-time env var
+// VITE_ADMIN_KEY (see skate-ui/.env.example). When unset, custom credit
+// grants are disabled in the build — no key is ever committed to the repo.
+const ADMIN_KEY = import.meta.env.VITE_ADMIN_KEY;
+
 export default function SettingsPage() {
   const state = useStore();
   const [clientSeedInput, setClientSeedInput] = useState(state.fairness.clientSeed);
@@ -118,7 +123,11 @@ export default function SettingsPage() {
 
   const handleCustomCredits = (e) => {
     e.preventDefault();
-    if (specialKey.trim() !== 'fcukyou') {
+    if (!ADMIN_KEY) {
+      showToast('Custom credit grants are disabled in this build', 'info');
+      return;
+    }
+    if (specialKey.trim() !== ADMIN_KEY) {
       showToast('Invalid Special Key! Access Denied', 'danger');
       return;
     }
@@ -261,6 +270,7 @@ export default function SettingsPage() {
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Inject Custom Virtual Credits</div>
         <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
           Requires the authorization key to inject or set your virtual credits to any custom amount.
+          {!ADMIN_KEY && ' Custom credit grants are disabled in this build — set VITE_ADMIN_KEY to enable them.'}
         </div>
         <form onSubmit={handleCustomCredits} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 8 }}>
