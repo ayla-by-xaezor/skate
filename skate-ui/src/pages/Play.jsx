@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Copy, Check } from 'lucide-react';
 import { useStore } from '../hooks';
-import { MIN_STAKE, MAX_STAKE, playSound, simpleSha256Hex, showToast } from '../store';
+import { api } from '../api';
+import { MIN_STAKE, MAX_STAKE, playSound, showToast } from '../store';
 
 import BlackjackGame from '../games/Blackjack';
 import PlinkoGame from '../games/Plinko';
@@ -17,6 +18,7 @@ const GAME_TABS = [
   { id: 'mines', label: 'Mines', diamond: true },
   { id: 'dice', label: 'Dice', diceColor: '#c084fc' },
   { id: 'crash', label: 'Crash', rocket: true },
+  { id: 'reflex', label: 'Reflex', icon: '🎯' },
 ];
 
 const CHIP_VALUES = [10, 25, 100, 250, 500];
@@ -69,10 +71,23 @@ export default function PlayPage() {
   // Dynamic slider range that scales with user balance and custom entered stake
   const dynamicMax = Math.max(1000, state.credits, stake);
 
-  const currentSeedHash = simpleSha256Hex(`${state.fairness.serverSeed}:${state.fairness.clientSeed}:${state.fairness.nonce}`).slice(0, 10);
+  // Server fairness values (seed hash + nonce from GET /fairness). The
+  // local toy hash is gone; if the fetch fails, the pill simply hides
+  // rather than showing a made-up value.
+  const [fairness, setFairness] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    api.fairness()
+      .then((f) => { if (!cancelled) setFairness(f); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  const currentSeedHash = fairness ? fairness.server_seed_hash.slice(0, 10) : null;
 
   const copyHash = () => {
-    navigator.clipboard?.writeText(currentSeedHash);
+    if (!currentSeedHash) return;
+    navigator.clipboard?.writeText(fairness.server_seed_hash);
     setCopied(true);
     showToast('Provably Fair Hash copied!', 'emerald');
     setTimeout(() => setCopied(false), 2000);
@@ -108,11 +123,15 @@ export default function PlayPage() {
         <div className="wager-stake-header">
           <span className="wager-stake-title">WAGER STAKE</span>
           <div className="wager-fairness-wrap">
-            <span className="wager-nonce-label">Nonce #{state.fairness.nonce}</span>
-            <div className="wager-hash-pill" onClick={copyHash} title="Click to copy hash">
-              <span>{currentSeedHash}...</span>
-              {copied ? <Check size={12} color="#00e676" /> : <Copy size={12} color="#00e676" />}
-            </div>
+            {fairness && (
+              <>
+                <span className="wager-nonce-label">Nonce #{fairness.nonce}</span>
+                <div className="wager-hash-pill" onClick={copyHash} title="Click to copy hash">
+                  <span>{currentSeedHash}...</span>
+                  {copied ? <Check size={12} color="#00e676" /> : <Copy size={12} color="#00e676" />}
+                </div>
+              </>
+            )}
           </div>
         </div>
 

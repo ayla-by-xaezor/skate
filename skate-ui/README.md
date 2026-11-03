@@ -89,9 +89,9 @@ Whenever a game round resolves, custom full-screen celebration modals pop up wit
 - **💰 Stake Controls (10–5,000 SC)**:
   - Direct custom numeric typing in betting amount box.
   - Dynamic stake slider scaling automatically to user balance, capped at the table limit.
-- **🔑 Admin Virtual Credits Injection (env-gated)**:
-  - Credit grant tool in Settings, enabled only when a `VITE_ADMIN_KEY` is configured at build time. No key is committed to the repo.
-  - Transaction ledger history and balance synchronization.
+- **🔐 Server-backed wallet**:
+  - Credits, game outcomes, and the ledger live on the FastAPI backend — login required, every round settles through an idempotent API call.
+  - Transaction ledger history and balance synchronization from the server.
 
 ---
 
@@ -137,7 +137,7 @@ cd android
 
 | Feature | Key / Command | Description |
 | :--- | :---: | :--- |
-| **Custom Credits Key** | `VITE_ADMIN_KEY` (build-time env) | Set it to enable **Settings > Grant Custom Credits**; unset means grants are disabled. Never commit a real key. |
+| **API Base URL** | `VITE_API_URL` (frontend env) | Where the web app reaches the API; default `http://localhost:8000`. |
 | **Notification Channel** | `skate_casino_channel` | Android notification channel with high priority and vibration. |
 | **Provably Fair Seed** | User configurable | Accessible via **Settings > Preferences & Fairness**. |
 
